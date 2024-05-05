@@ -1,0 +1,47 @@
+from flask import Flask, jsonify, request
+import mysql.connector
+
+app = Flask(__name__)
+
+# Database Configuration
+db = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="Priyank@123",
+    database="icecream_db"
+)
+cursor = db.cursor()
+
+@app.route('/place_order', methods=['POST'])
+def place_order():
+    data = request.json
+    flavor = data.get('flavor')
+    toppings = data.get('toppings', [])
+    size = data.get('size')
+    scoops = data.get('scoops', 1)
+
+    total_cost = calculate_cost(flavor, toppings, size, scoops)
+
+    # Insert order into the database
+    cursor.execute("INSERT INTO orders (flavor, toppings, size, scoops, total_cost) VALUES (%s, %s, %s, %s, %s)",
+                   (flavor, ', '.join(toppings), size, scoops, total_cost))
+    db.commit()
+
+    return jsonify({'message': f'Order placed successfully. Total cost: ₹{total_cost:.2f}'}), 200
+
+def calculate_cost(flavor, toppings, size, scoops):
+    flavors_prices = {"Chocolate": 150.0, "Vanilla": 120.0, "Strawberry": 135.0}
+    toppings_prices = {"Sprinkles": 37.5, "Choc Chips": 56.25, "Caramel": 75.0}
+    sizes_prices = {"Small": 75.0, "Medium": 112.5, "Large": 150.0}
+    scoops_cost_per_scoop = 37.5
+
+    flavor_cost = flavors_prices.get(flavor, 0.0)
+    toppings_cost = sum(toppings_prices.get(topping, 0.0) for topping in toppings)
+    size_cost = sizes_prices.get(size, 0.0)
+    scoops_cost = scoops_cost_per_scoop * (scoops - 1) if scoops > 1 else 0.0
+
+    total_cost = flavor_cost + toppings_cost + size_cost + scoops_cost
+    return total_cost
+
+if __name__ == '__main__':
+    app.run(debug=True)
